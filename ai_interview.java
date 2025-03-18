@@ -4,33 +4,29 @@ import java.util.*;
 class User {
     String userId;
     String name;
+    String password;
     int totalPoints;
     double engagementPercent;
     int rank;
     String preferenceTag;
     Date lastActivityDate;
+    boolean loggedInThisSession = false;
+    int dailyLoginBonus = 5;
 
-    int pointsToday; // Naya addition for tracking daily points
-
-    public User(String userId, String name) {
+    public User(String userId, String name, String password) {
         this.userId = userId;
         this.name = name;
-        this.totalPoints = 0;
+        this.password = password;
+        this.totalPoints = 5;
         this.engagementPercent = 0.0;
         this.rank = 0;
         this.preferenceTag = "⚠️ Low Engaged";
         this.lastActivityDate = new Date();
-        this.pointsToday = 0;
     }
 
     public void addPoints(int points) {
         this.totalPoints += points;
-        this.pointsToday += points;
         this.lastActivityDate = new Date();
-    }
-
-    public void resetPointsToday() {
-        this.pointsToday = 0;
     }
 
     public void displayEngagement() {
@@ -39,7 +35,6 @@ class User {
         System.out.printf("Engagement Percent: %.2f%%\n", engagementPercent);
         System.out.println("Rank: " + rank);
         System.out.println("Preference Tag: " + preferenceTag);
-        System.out.println("Points Earned Today: " + pointsToday);
         System.out.println("--------------------------------------");
     }
 }
@@ -50,6 +45,7 @@ class Lead {
     String question;
     String category;
     String source;
+    String assignedTo = "Not Assigned";
 
     public Lead(String leadOwner, String question, String category, String source) {
         this.leadOwner = leadOwner;
@@ -63,6 +59,7 @@ class Lead {
         System.out.println("Question: " + question);
         System.out.println("Category: " + category);
         System.out.println("Source: " + source);
+        System.out.println("Assigned To: " + assignedTo);
         System.out.println("-----------------------------");
     }
 }
@@ -72,77 +69,106 @@ public class LeadManagementSystem {
 
     static List<User> users = new ArrayList<>();
     static List<Lead> leadDatabase = new ArrayList<>();
-    static int MAX_POSSIBLE_POINTS = 100;
+    static int MAX_POSSIBLE_POINTS = 200;
 
     public static void main(String[] args) {
+
         Scanner sc = new Scanner(System.in);
+        boolean running = true;
 
-        // Step 1: Create Users Dynamically
-        System.out.print("Kitne users add karne hain? : ");
-        int userCount = sc.nextInt();
-        sc.nextLine();
+        System.out.println("======== WELCOME TO LEAD MANAGEMENT SYSTEM ========");
 
-        for (int i = 1; i <= userCount; i++) {
-            System.out.print("User " + i + " ka naam daalo: ");
-            String name = sc.nextLine();
-            String userId = "U" + i;
-            users.add(new User(userId, name));
-        }
+        while (running) {
+            System.out.println("\n==== HOME MENU ====");
+            System.out.println("1. Signup");
+            System.out.println("2. Login & Start Operations");
+            System.out.println("3. Exit");
 
-        // Step 2: Login Process for All Users + 10 Points
-        List<User> loggedInUsers = new ArrayList<>();
-        for (int i = 0; i < userCount; i++) {
-            User loggedInUser = login(sc);
-            if (loggedInUser != null) {
-                loggedInUser.addPoints(10); // Auto 10 points on login
-                System.out.println(loggedInUser.name + " ko login ke 10 points diye gaye.\n");
-                loggedInUsers.add(loggedInUser);
+            System.out.print("Choice daalo: ");
+            int homeChoice = sc.nextInt();
+            sc.nextLine();
+
+            switch (homeChoice) {
+                case 1:
+                    signup(sc);
+                    break;
+                case 2:
+                    User loggedInUser = login(sc);
+                    if (loggedInUser != null) {
+                        mainMenu(sc, loggedInUser);
+                    }
+                    break;
+                case 3:
+                    running = false;
+                    System.out.println("System se exit kar rahe ho. Bye!");
+                    break;
+                default:
+                    System.out.println("Galat option hai! Dobara try karo.");
             }
-        }
-
-        if (loggedInUsers.isEmpty()) {
-            System.out.println("Koi user login nahi hua! Exiting...");
-            sc.close();
-            return;
-        }
-
-        // Step 3: Menu for each logged-in user
-        for (User user : loggedInUsers) {
-            System.out.println("\n========== Welcome " + user.name + "! ==========");
-            mainMenu(sc, user);
         }
 
         sc.close();
     }
 
+    // ================== SIGNUP FUNCTION ==================
+    public static void signup(Scanner sc) {
+        System.out.print("Apna naam daalo: ");
+        String name = sc.nextLine();
+        System.out.print("Password set karo: ");
+        String password = sc.nextLine();
+
+        String userId = "U" + (users.size() + 1);
+        User newUser = new User(userId, name, password);
+        users.add(newUser);
+
+        System.out.println("✅ Signup successful! User ID: " + userId + ", 5 points diye gaye.");
+    }
+
     // ================== LOGIN FUNCTION ==================
     public static User login(Scanner sc) {
-        System.out.println("\n==== LOGIN PANEL ====");
-        System.out.print("Apna User ID daalo (e.g., U1, U2...): ");
+        System.out.println("\n==== USER LOGIN ====");
+        displayAllUsersShort();
+
+        System.out.print("User ID daalo (U1, U2...): ");
         String userId = sc.nextLine();
 
         User user = getUserById(userId);
+
         if (user != null) {
-            System.out.println("Welcome " + user.name + "! ✅");
-            return user;
+            System.out.print("Password daalo: ");
+            String password = sc.nextLine();
+
+            if (password.equals(user.password)) {
+                if (!user.loggedInThisSession) {
+                    user.addPoints(10 + user.dailyLoginBonus);
+                    user.loggedInThisSession = true;
+                    logActivity(user.name + " logged in and earned 10 + daily bonus points");
+                }
+                System.out.println("✅ Login successful for " + user.name);
+                return user;
+            } else {
+                System.out.println("❌ Password galat!");
+            }
         } else {
-            System.out.println("❌ User ID galat hai!");
-            return null;
+            System.out.println("❌ User ID galat!");
         }
+
+        return null;
     }
 
     // ================== MAIN MENU ==================
     public static void mainMenu(Scanner sc, User loggedInUser) {
         boolean running = true;
 
-        loggedInUser.resetPointsToday(); // reset at start of session
-
         while (running) {
+            calculateEngagement();
             System.out.println("\n==== Main Menu (" + loggedInUser.name + ") ====");
             System.out.println("1. Perform Activity");
             System.out.println("2. Engagement Summary");
             System.out.println("3. Lead Management");
-            System.out.println("4. Logout");
+            System.out.println("4. Update Profile");
+            System.out.println("5. Leaderboard");
+            System.out.println("6. Logout & Exit");
 
             System.out.print("Apna choice batao: ");
             int choice = sc.nextInt();
@@ -151,21 +177,26 @@ public class LeadManagementSystem {
             switch (choice) {
                 case 1:
                     performUserActivity(sc, loggedInUser);
-                    calculateEngagement();
                     break;
                 case 2:
-                    calculateEngagement();
                     displayAllUsers();
                     break;
                 case 3:
                     leadManagementMenu(sc, loggedInUser);
                     break;
                 case 4:
+                    updateProfile(sc, loggedInUser);
+                    break;
+                case 5:
+                    displayLeaderBoard();
+                    break;
+                case 6:
                     running = false;
-                    System.out.println("Logout successful for " + loggedInUser.name);
+                    loggedInUser.loggedInThisSession = false;
+                    System.out.println("Logout ho gaye. Dhanyavaad!");
                     break;
                 default:
-                    System.out.println("Galat choice hai!");
+                    System.out.println("Invalid choice! Dobara try karo.");
             }
         }
     }
@@ -173,56 +204,63 @@ public class LeadManagementSystem {
     // ================== USER ACTIVITIES ==================
     public static void performUserActivity(Scanner sc, User user) {
         System.out.println("\nAvailable Actions:");
-        System.out.println("1. Add Lead (20 points)");
-        System.out.println("2. Schedule Interview (10 points)");
-        System.out.println("3. View Leads (20 points)");
-        System.out.println("4. Send Follow-Up (15 points)");
-        System.out.println("5. View Today's Points");
+        System.out.println("1. View Pre-made Questions (+20 points)");
+        System.out.println("2. Schedule Interview (+10 points)");
+        System.out.println("3. View Leads (+20 points)");
+        System.out.println("4. Send Follow-up (+15 points)");
+        System.out.print("Action number daalo (1-4): ");
 
-        System.out.print("Action number daalo (1-5): ");
         int action = sc.nextInt();
         sc.nextLine();
 
         switch (action) {
             case 1:
-                addLead(sc, user);
+                viewPreMadeQuestions();
                 user.addPoints(20);
-                System.out.println("Lead add ki aur 20 points diye.");
+                logActivity(user.name + " viewed pre-made questions and earned 20 points");
                 break;
             case 2:
                 user.addPoints(10);
-                System.out.println("Interview schedule kiya. 10 points diye.");
+                logActivity(user.name + " scheduled an interview and earned 10 points");
+                System.out.println("Interview schedule kar diya!");
                 break;
             case 3:
-                displayMyLeads(user);
+                displayLeads();
                 user.addPoints(20);
-                System.out.println("Leads dekhi aur 20 points diye.");
+                logActivity(user.name + " viewed leads and earned 20 points");
                 break;
             case 4:
                 user.addPoints(15);
-                System.out.println("Follow-up bheja. 15 points diye.");
-                break;
-            case 5:
-                System.out.println("Aaj ke points: " + user.pointsToday);
+                logActivity(user.name + " sent a follow-up and earned 15 points");
+                System.out.println("Follow-up bhej diya!");
                 break;
             default:
-                System.out.println("Galat action number!");
+                System.out.println("Galat action number daala hai!");
         }
     }
 
-    // ================== LEAD MANAGEMENT ==================
+    public static void viewPreMadeQuestions() {
+        System.out.println("\n==== Pre-made Questions ====");
+        System.out.println("1. Explain OOPs Concepts.");
+        System.out.println("2. What is Polymorphism?");
+        System.out.println("3. How to optimize SQL queries?");
+        System.out.println("4. Difference between Abstract Class and Interface.");
+    }
+
+    // ================== LEAD MANAGEMENT MENU ==================
     public static void leadManagementMenu(Scanner sc, User loggedInUser) {
         boolean leadRunning = true;
 
         while (leadRunning) {
             System.out.println("\n==== Lead Management Menu ====");
-            System.out.println("1. Add New Lead");
-            System.out.println("2. View All Leads");
-            System.out.println("3. View My Leads");
-            System.out.println("4. Delete My Lead");
-            System.out.println("5. Auto-fetch Quora Leads");
-            System.out.println("6. Auto-fetch Stack Overflow Leads");
-            System.out.println("7. Exit Lead Management");
+            System.out.println("1. Add new lead manually");
+            System.out.println("2. View all leads");
+            System.out.println("3. Auto-fetch Quora CS leads");
+            System.out.println("4. Auto-fetch Stack Overflow CS leads");
+            System.out.println("5. Search lead by category/owner");
+            System.out.println("6. Assign lead to user");
+            System.out.println("7. Delete lead");
+            System.out.println("8. Exit Lead Management");
 
             System.out.print("Apna choice batao: ");
             int leadChoice = sc.nextInt();
@@ -236,23 +274,25 @@ public class LeadManagementSystem {
                     displayLeads();
                     break;
                 case 3:
-                    displayMyLeads(loggedInUser);
-                    break;
-                case 4:
-                    deleteMyLead(sc, loggedInUser);
-                    break;
-                case 5:
                     autoFetchQuoraLeads();
                     break;
-                case 6:
+                case 4:
                     autoFetchStackOverflowLeads();
                     break;
+                case 5:
+                    searchLead(sc);
+                    break;
+                case 6:
+                    assignLead(sc);
+                    break;
                 case 7:
+                    deleteLead(sc);
+                    break;
+                case 8:
                     leadRunning = false;
-                    System.out.println("Lead management se exit.");
                     break;
                 default:
-                    System.out.println("Galat option!");
+                    System.out.println("Invalid option!");
             }
         }
     }
@@ -266,12 +306,15 @@ public class LeadManagementSystem {
         Lead lead = new Lead(loggedInUser.name, question, category, "Manual");
         leadDatabase.add(lead);
 
-        System.out.println("Lead successfully add ho gaya by " + loggedInUser.name);
+        loggedInUser.addPoints(15);
+        logActivity(loggedInUser.name + " added a manual lead and earned 15 points");
+
+        System.out.println("✅ Lead successfully add ho gaya by " + loggedInUser.name);
     }
 
     public static void displayLeads() {
         if (leadDatabase.isEmpty()) {
-            System.out.println("Koi lead nahi hai.");
+            System.out.println("❌ Koi lead nahi mili abhi tak.");
             return;
         }
 
@@ -281,75 +324,108 @@ public class LeadManagementSystem {
         }
     }
 
-    public static void displayMyLeads(User user) {
-        boolean found = false;
-        System.out.println("\n===== " + user.name + " ke Leads =====");
+    public static void searchLead(Scanner sc) {
+        System.out.print("Search by (category/owner): ");
+        String search = sc.nextLine().toLowerCase();
 
         for (Lead lead : leadDatabase) {
-            if (lead.leadOwner.equals(user.name)) {
+            if (lead.category.toLowerCase().contains(search) || lead.leadOwner.toLowerCase().contains(search)) {
                 lead.displayLead();
-                found = true;
             }
-        }
-
-        if (!found) {
-            System.out.println("Koi lead nahi hai " + user.name + " ki.");
         }
     }
 
-    public static void deleteMyLead(Scanner sc, User user) {
-        displayMyLeads(user);
+    public static void assignLead(Scanner sc) {
+        displayLeads();
+        System.out.print("Lead number choose karo (starting from 1): ");
+        int index = sc.nextInt();
+        sc.nextLine();
 
-        System.out.print("Delete karne wale question ka exact naam batao: ");
-        String questionToDelete = sc.nextLine();
+        if (index < 1 || index > leadDatabase.size()) {
+            System.out.println("❌ Invalid lead number!");
+            return;
+        }
 
-        Iterator<Lead> iterator = leadDatabase.iterator();
-        boolean found = false;
+        System.out.print("Assign kis user ko karna hai (UserID): ");
+        String userId = sc.nextLine();
 
-        while (iterator.hasNext()) {
-            Lead lead = iterator.next();
-            if (lead.leadOwner.equals(user.name) && lead.question.equals(questionToDelete)) {
-                iterator.remove();
-                found = true;
-                System.out.println("Lead delete ho gayi: " + questionToDelete);
+        User user = getUserById(userId);
+        if (user != null) {
+            leadDatabase.get(index - 1).assignedTo = user.name;
+            System.out.println("✅ Lead assigned to " + user.name);
+        } else {
+            System.out.println("❌ User not found!");
+        }
+    }
+
+    public static void deleteLead(Scanner sc) {
+        displayLeads();
+        System.out.print("Delete lead number (starting from 1): ");
+        int index = sc.nextInt();
+        sc.nextLine();
+
+        if (index < 1 || index > leadDatabase.size()) {
+            System.out.println("❌ Invalid lead number!");
+            return;
+        }
+
+        leadDatabase.remove(index - 1);
+        System.out.println("✅ Lead deleted successfully!");
+    }
+
+    // ================== UPDATE PROFILE ==================
+    public static void updateProfile(Scanner sc, User user) {
+        System.out.println("\n==== Update Profile ====");
+        System.out.println("1. Update Name");
+        System.out.println("2. Update Password");
+        System.out.print("Choose option: ");
+        int choice = sc.nextInt();
+        sc.nextLine();
+
+        switch (choice) {
+            case 1:
+                System.out.print("New name daalo: ");
+                String newName = sc.nextLine();
+                user.name = newName;
+                System.out.println("✅ Name updated!");
                 break;
-            }
-        }
-
-        if (!found) {
-            System.out.println("Lead nahi mili jo delete karni thi.");
+            case 2:
+                System.out.print("New password daalo: ");
+                String newPass = sc.nextLine();
+                user.password = newPass;
+                System.out.println("✅ Password updated!");
+                break;
+            default:
+                System.out.println("❌ Invalid choice");
         }
     }
 
+    // ================== LEADERBOARD ==================
+    public static void displayLeaderBoard() {
+        calculateEngagement();
+        System.out.println("\n==== Leaderboard ====");
+        for (User user : users) {
+            System.out.println(user.rank + ". " + user.name + " - " + user.totalPoints + " points (" + user.preferenceTag + ")");
+        }
+    }
+
+    // ================== COMMON FUNCTIONS ==================
     public static void autoFetchQuoraLeads() {
-        System.out.println("Fetching Quora Leads...");
+        System.out.println("Fetching filtered CS leads from Quora...");
 
-        leadDatabase.add(new Lead("Quora System", "What are the best programming languages to learn in 2025?", "CS", "Quora"));
-        leadDatabase.add(new Lead("Quora System", "How to crack Google software engineering interviews?", "CS", "Quora"));
-        leadDatabase.add(new Lead("Quora System", "Latest AI tools for data science?", "CS", "Quora"));
-        leadDatabase.add(new Lead("Quora System", "Top machine learning algorithms to know?", "CS", "Quora"));
+        leadDatabase.add(new Lead("Quora System", "What is Big-O notation?", "Computer Science", "Quora"));
+        leadDatabase.add(new Lead("Quora System", "What are the top AI programming languages?", "Computer Science", "Quora"));
 
-        System.out.println("4 CS leads Quora se fetch ho gayi.");
+        System.out.println("✅ 2 CS leads Quora se fetch ho gaye!");
     }
 
     public static void autoFetchStackOverflowLeads() {
-        System.out.println("Fetching Stack Overflow Leads...");
+        System.out.println("Fetching filtered CS leads from Stack Overflow...");
 
-        leadDatabase.add(new Lead("StackOverflow System", "How to optimize SQL queries?", "CS", "Stack Overflow"));
-        leadDatabase.add(new Lead("StackOverflow System", "Best practices for clean Java code?", "CS", "Stack Overflow"));
-        leadDatabase.add(new Lead("StackOverflow System", "Secure authentication in web apps?", "CS", "Stack Overflow"));
-        leadDatabase.add(new Lead("StackOverflow System", "How to handle concurrency in Java?", "CS", "Stack Overflow"));
+        leadDatabase.add(new Lead("StackOverflow System", "Best practices for REST API design?", "Computer Science", "Stack Overflow"));
+        leadDatabase.add(new Lead("StackOverflow System", "How to secure web applications?", "Computer Science", "Stack Overflow"));
 
-        System.out.println("4 CS leads Stack Overflow se fetch ho gayi.");
-    }
-
-    public static User getUserById(String userId) {
-        for (User user : users) {
-            if (user.userId.equalsIgnoreCase(userId)) {
-                return user;
-            }
-        }
-        return null;
+        System.out.println("✅ 2 CS leads Stack Overflow se fetch ho gaye!");
     }
 
     public static void calculateEngagement() {
@@ -378,5 +454,30 @@ public class LeadManagementSystem {
         for (User user : users) {
             user.displayEngagement();
         }
+    }
+
+    public static void displayAllUsersShort() {
+        if (users.isEmpty()) {
+            System.out.println("❌ Koi user nahi mila. Pehle signup karo!");
+            return;
+        }
+
+        System.out.println("\nRegistered Users:");
+        for (User user : users) {
+            System.out.println(user.userId + " - " + user.name);
+        }
+    }
+
+    public static User getUserById(String userId) {
+        for (User user : users) {
+            if (user.userId.equalsIgnoreCase(userId)) {
+                return user;
+            }
+        }
+        return null;
+    }
+
+    public static void logActivity(String log) {
+        System.out.println("LOG: " + log);
     }
 }
